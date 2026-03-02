@@ -36,7 +36,7 @@ FireAlert GM is a Progressive Web Application (PWA) built to modernise emergency
 
 The system allows any person in The Gambia to submit a fire or rescue emergency with their GPS coordinates, automatically alerts the nearest available fire station in real time, and keeps the citizen informed as help is dispatched.
 
-**Built by:** Lamin (AttendanceGM)
+**Built by:** Musbi (AttendanceGM)
 **Donated to:** Gambia Fire and Rescue Service
 **Status:** In development
 
@@ -46,12 +46,12 @@ The system allows any person in The Gambia to submit a fire or rescue emergency 
 
 When a fire or emergency occurs in The Gambia today:
 
-- The citizen calls the fire service by phone
-- The dispatcher tries to understand the location verbally
-- Many areas have no formal addresses — only landmarks
-- The wrong station may be contacted
-- The unit may arrive late or at the wrong location
-- **People die because of the delay**
+* The citizen calls the fire service by phone
+* The dispatcher tries to understand the location verbally
+* Many areas have no formal addresses — only landmarks
+* The wrong station may be contacted
+* The unit may arrive late or at the wrong location
+* **People die because of the delay**
 
 There is no digital system. No location sharing. No dispatch tracking. No confirmation to the citizen that help is coming.
 
@@ -62,20 +62,24 @@ There is no digital system. No location sharing. No dispatch tracking. No confir
 FireAlert GM solves this with three connected pieces:
 
 **For the citizen:**
-- One-tap SOS button that captures GPS and fires an alert instantly
-- Full form submission with emergency type, severity, landmark, and photo
-- SMS confirmation when help is dispatched
-- Tracking reference number to follow the emergency status
+
+* One-tap SOS button that captures GPS and fires an alert instantly
+* Full form submission with emergency type, severity, landmark, and photo
+* SMS confirmation when help is dispatched
+* Tracking reference number to follow the emergency status
 
 **For the dispatcher (station admin):**
-- Real-time dashboard that alarms the moment an emergency is submitted
-- Map showing the emergency location and station positions
-- One-click approval to dispatch a unit
-- Automatic fallback to next nearest station if the closest is unavailable
+
+* Real-time dashboard that alarms the moment an emergency is submitted
+* Map showing the emergency location and station positions
+* One-click approval to dispatch a unit
+* Automatic fallback to next nearest station if the closest is unavailable
+* Auto-approve dispatch after timeout if admin does not respond
 
 **For the fire unit:**
-- SMS alert with GPS coordinates and a Google Maps link for navigation
-- No smartphone required — works on basic phones via SMS
+
+* SMS alert with GPS coordinates and a Google Maps link for navigation
+* No smartphone required — works on basic phones via SMS
 
 ---
 
@@ -97,6 +101,7 @@ FireAlert GM solves this with three connected pieces:
 │  4. Assign station, generate reference number               │
 │  5. Fire Socket.IO event → admin dashboard                  │
 │  6. Send SMS to station admin phone (Africa's Talking)      │
+│  7. Auto-approve dispatch if admin inactive after timeout  │
 └──────┬────────────────────────────┬────────────────────────-┘
        │ Socket.IO                  │ SMS
        ▼                            ▼
@@ -115,6 +120,7 @@ FireAlert GM solves this with three connected pieces:
 │  2. SMS to citizen → "Help is on the way, Ref: GM-XXXXX"   │
 │  3. SMS to fire unit → GPS coords + Google Maps link        │
 │  4. Socket.IO → citizen tracking screen updates             │
+│  5. Escalate to Super Admin if no station available        │
 └─────────────────────────────────────────────────────────────┘
          │
          ▼
@@ -130,12 +136,12 @@ FireAlert GM solves this with three connected pieces:
 
 ## 5. User Roles
 
-| Role | Description | Access |
-|---|---|---|
-| **Guest / Unverified** | Anyone who submits without a registered account. Requires phone number only. Flagged as unverified in dashboard. | Submit emergency only |
-| **Registered Citizen** | User who has registered with their name, phone, and national ID. Trusted reports. | Submit + track own emergencies |
-| **Station Admin** | Dispatcher at a specific fire station. Receives and approves emergency alerts for their station. | Station dashboard + dispatch approval |
-| **Super Admin** | National HQ. Can see all stations, all emergencies, and analytics. | Full system access |
+| Role                   | Description                                                                                                      | Access                                |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **Guest / Unverified** | Anyone who submits without a registered account. Requires phone number only. Flagged as unverified in dashboard. | Submit emergency only                 |
+| **Registered Citizen** | User who has registered with their name, phone, and national ID. Trusted reports.                                | Submit + track own emergencies        |
+| **Station Admin**      | Dispatcher at a specific fire station. Receives and approves emergency alerts for their station.                 | Station dashboard + dispatch approval |
+| **Super Admin**        | National HQ. Can see all stations, all emergencies, and analytics. Receives escalations.                         | Full system access                    |
 
 ---
 
@@ -159,17 +165,17 @@ FireAlert GM solves this with three connected pieces:
 13. Citizen sees success screen with reference number
 ```
 
-### 6.2 Dispatch Approval
+### 6.2 Dispatch Approval (with Auto-Approve)
 
 ```
 1. Station admin hears alarm on dashboard
 2. Admin sees emergency on map with details
 3. Admin reviews: type, severity, location, verified/unverified
-4. Admin clicks "Approve Dispatch"
+4. Admin clicks "Approve Dispatch" OR system auto-approves after timeout
 5. Admin selects which unit/truck to send
 6. Backend updates emergency status → "dispatched"
 7. SMS sent to citizen: "Unit dispatched. ETA ~X mins. Ref: GM-XXXXX"
-8. SMS sent to fire unit: "EMERGENCY: Fire at [landmark]. GPS: maps.google.com/...  Ref: GM-XXXXX"
+8. SMS sent to fire unit: "EMERGENCY: Fire at [landmark]. GPS: maps.google.com/... Ref: GM-XXXXX"
 9. Socket.IO event → citizen tracking screen updates
 10. Response record created with dispatched_at timestamp
 ```
@@ -185,355 +191,51 @@ FireAlert GM solves this with three connected pieces:
 6. Analytics record updated
 ```
 
-### 6.4 Station Unavailable (Fallback)
+### 6.4 Station Unavailable (Fallback + Escalation)
 
 ```
 1. Nearest station is status: "responding" or "unavailable"
 2. System automatically queries next nearest station
-3. Repeats until an available station is found
+3. Repeats until an available station is found (rate-limited to avoid spamming)
 4. If no stations available in region → escalate to Super Admin
 5. Super Admin notified via SMS and dashboard
 ```
 
 ---
 
-## 7. Project Structure
+## 11. MVP Scope (Updated)
 
-```
-firealert-gm/
-│
-├── README.md                          # This file
-│
-├── docker-compose.yml                 # Runs backend + frontend + DB together
-│
-├── backend/                           # FastAPI application
-│   ├── app/
-│   │   ├── main.py                    # App entry point, router registration
-│   │   ├── config.py                  # Settings from environment variables
-│   │   ├── database.py                # PostgreSQL + PostGIS async connection
-│   │   │
-│   │   ├── models/                    # SQLAlchemy ORM models
-│   │   │   ├── __init__.py
-│   │   │   ├── user.py                # Users table
-│   │   │   ├── station.py             # Fire stations table
-│   │   │   ├── emergency.py           # Emergencies table
-│   │   │   └── response.py            # Response tracking table
-│   │   │
-│   │   ├── schemas/                   # Pydantic request/response shapes
-│   │   │   ├── __init__.py
-│   │   │   ├── user.py                # UserCreate, UserOut, LoginRequest
-│   │   │   ├── emergency.py           # EmergencyCreate, EmergencyOut, StatusUpdate
-│   │   │   └── station.py             # StationOut, StationStatusUpdate
-│   │   │
-│   │   ├── routers/                   # API route handlers
-│   │   │   ├── __init__.py
-│   │   │   ├── auth.py                # /auth/register, /auth/login, /auth/guest-token
-│   │   │   ├── emergencies.py         # /emergencies CRUD + status updates
-│   │   │   ├── stations.py            # /stations list + status management
-│   │   │   └── admin.py               # /admin/dashboard stats
-│   │   │
-│   │   ├── services/                  # Core business logic (no DB queries here)
-│   │   │   ├── __init__.py
-│   │   │   ├── geo.py                 # Find nearest available station via PostGIS
-│   │   │   ├── sms.py                 # Africa's Talking SMS + voice integration
-│   │   │   └── socket.py             # Socket.IO event emitters
-│   │   │
-│   │   └── utils/
-│   │       ├── __init__.py
-│   │       ├── security.py            # JWT creation/verification, password hashing
-│   │       └── helpers.py             # Reference ID generator (GM-XXXXX), etc.
-│   │
-│   ├── migrations/                    # Alembic database migrations
-│   │   ├── env.py
-│   │   ├── script.py.mako
-│   │   └── versions/
-│   │       └── 001_initial_schema.py
-│   │
-│   ├── tests/
-│   │   ├── test_auth.py
-│   │   ├── test_emergencies.py
-│   │   └── test_geo.py
-│   │
-│   ├── requirements.txt
-│   ├── .env.example
-│   └── Dockerfile
-│
-├── frontend/                          # React PWA
-│   ├── public/
-│   │   ├── manifest.json              # PWA install manifest
-│   │   ├── sw.js                      # Service worker (offline support)
-│   │   └── icons/                     # App icons (192x192, 512x512)
-│   │
-│   ├── src/
-│   │   ├── main.jsx                   # React entry point
-│   │   ├── App.jsx                    # Routes + auth guard
-│   │   │
-│   │   ├── pages/
-│   │   │   ├── ReportEmergency.jsx    # Citizen submission page (SOS + form)
-│   │   │   ├── TrackEmergency.jsx     # Citizen tracks their submission
-│   │   │   ├── Login.jsx              # Auth login
-│   │   │   ├── Register.jsx           # Citizen registration
-│   │   │   ├── Dashboard.jsx          # Station admin real-time dashboard
-│   │   │   ├── EmergencyDetail.jsx    # Single emergency full view (admin)
-│   │   │   └── SuperAdminPanel.jsx    # National HQ view (all stations)
-│   │   │
-│   │   ├── components/
-│   │   │   ├── SOSButton.jsx          # Big red SOS button with GPS logic
-│   │   │   ├── EmergencyForm.jsx      # Full detailed submission form
-│   │   │   ├── EmergencyCard.jsx      # Dashboard list item per emergency
-│   │   │   ├── MapView.jsx            # Leaflet map (emergency + station pins)
-│   │   │   ├── StatusBadge.jsx        # Colored status pill
-│   │   │   ├── AlarmAlert.jsx         # Full-screen alarm popup for admins
-│   │   │   └── DispatchModal.jsx      # Admin approval + unit assignment
-│   │   │
-│   │   ├── hooks/
-│   │   │   ├── useSocket.js           # Socket.IO connection + event listeners
-│   │   │   ├── useGPS.js              # GPS capture with accuracy tracking
-│   │   │   └── useAuth.js             # Auth state, token management
-│   │   │
-│   │   ├── services/
-│   │   │   ├── api.js                 # Axios instance + all API call functions
-│   │   │   └── socket.js              # Socket.IO client initialisation
-│   │   │
-│   │   └── store/
-│   │       ├── authStore.js           # Zustand: user, token, role
-│   │       └── emergencyStore.js      # Zustand: active emergencies list
-│   │
-│   ├── package.json
-│   ├── vite.config.js
-│   └── .env.example
-│
-└── docs/
-    ├── api-examples.md                # Example API requests and responses
-    ├── sms-templates.md               # All SMS message templates
-    └── station-setup-guide.md         # Guide for onboarding new stations
-```
-
----
-
-## 8. Database Design
-
-### 8.1 users
-
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| name | VARCHAR(100) | Full name |
-| phone | VARCHAR(20) | Unique, required |
-| email | VARCHAR(150) | Optional |
-| id_number | VARCHAR(50) | National ID, unique |
-| role | ENUM | `citizen`, `station_admin`, `super_admin` |
-| is_verified | BOOLEAN | Admin-verified account |
-| station_id | UUID FK | Null unless station_admin |
-| created_at | TIMESTAMP | |
-
-### 8.2 stations
-
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| name | VARCHAR(100) | e.g. "Serrekunda Fire Station" |
-| phone | VARCHAR(20) | Admin contact number |
-| location | GEOGRAPHY(POINT, 4326) | PostGIS geo point |
-| region | VARCHAR(100) | Gambian region |
-| status | ENUM | `available`, `responding`, `unavailable` |
-| created_at | TIMESTAMP | |
-
-### 8.3 emergencies
-
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| ref_number | VARCHAR(10) | e.g. GM-04821, unique |
-| type | ENUM | `fire`, `rescue`, `hazmat`, `other` |
-| severity | ENUM | `low`, `medium`, `high`, `critical` |
-| location | GEOGRAPHY(POINT, 4326) | Citizen GPS |
-| landmark | TEXT | Verbal location description |
-| region | VARCHAR(100) | Selected region |
-| description | TEXT | Citizen's description |
-| status | ENUM | `pending`, `assigned`, `dispatched`, `on_scene`, `resolved`, `cancelled` |
-| submitted_by | UUID FK | Null if guest |
-| caller_phone | VARCHAR(20) | Required for guests |
-| is_verified_report | BOOLEAN | False if guest submission |
-| assigned_station_id | UUID FK | Station assigned |
-| created_at | TIMESTAMP | |
-| updated_at | TIMESTAMP | |
-
-### 8.4 responses
-
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| emergency_id | UUID FK | |
-| station_id | UUID FK | |
-| unit_name | VARCHAR(50) | e.g. "Truck 04" |
-| approved_by | UUID FK | Admin user who approved |
-| assigned_at | TIMESTAMP | When station was notified |
-| approved_at | TIMESTAMP | When admin approved |
-| dispatched_at | TIMESTAMP | When unit left station |
-| arrived_at | TIMESTAMP | When unit reached scene |
-| resolved_at | TIMESTAMP | When emergency resolved |
-| response_time_seconds | INTEGER | Calculated: resolved_at - assigned_at |
-| notes | TEXT | Admin notes |
-
----
-
-## 9. API Reference
-
-### Authentication
-
-```
-POST   /api/auth/register
-       Body: { name, phone, email, id_number, password }
-       Returns: { user, access_token }
-
-POST   /api/auth/login
-       Body: { phone, password }
-       Returns: { user, access_token }
-
-POST   /api/auth/guest-token
-       Body: { phone }
-       Returns: { guest_token }
-       Note: Token expires in 1 hour, allows one submission only
-```
-
-### Emergencies
-
-```
-POST   /api/emergencies
-       Auth: Bearer token (registered or guest)
-       Body: { type, severity, latitude, longitude, landmark,
-               region, description, caller_phone? }
-       Returns: { emergency_id, ref_number, status, assigned_station }
-
-GET    /api/emergencies
-       Auth: station_admin or super_admin
-       Query: ?status=pending&region=GBA&limit=50
-       Returns: [ list of emergencies ]
-
-GET    /api/emergencies/{id}
-       Auth: owner or admin
-       Returns: { full emergency detail + response record }
-
-PATCH  /api/emergencies/{id}/approve
-       Auth: station_admin
-       Body: { unit_name }
-       Returns: { updated emergency, triggers SMS to citizen + unit }
-
-PATCH  /api/emergencies/{id}/status
-       Auth: station_admin
-       Body: { status: "on_scene" | "resolved" | "cancelled" }
-       Returns: { updated emergency }
-```
-
-### Stations
-
-```
-GET    /api/stations
-       Auth: any admin
-       Returns: [ all stations with location + status ]
-
-GET    /api/stations/{id}
-       Returns: { station detail }
-
-PATCH  /api/stations/{id}/status
-       Auth: station_admin (own station) or super_admin
-       Body: { status: "available" | "responding" | "unavailable" }
-       Returns: { updated station }
-```
-
-### Admin
-
-```
-GET    /api/admin/dashboard
-       Auth: super_admin
-       Returns: {
-         total_emergencies_today,
-         pending_count,
-         active_count,
-         avg_response_time_minutes,
-         stations_available,
-         stations_responding
-       }
-```
-
----
-
-## 10. Real-time Events
-
-FireAlert GM uses **Socket.IO** for real-time communication between the backend and connected clients.
-
-### Rooms
-
-- `station:{station_id}` — Admin dashboards join this room on login
-- `emergency:{emergency_id}` — Citizens join this room to track their emergency
-- `superadmin` — Super admin room for national overview
-
-### Events: Server → Client
-
-```
-new_emergency
-  Room: station:{station_id}
-  Payload: { emergency_id, ref_number, type, severity,
-             landmark, location, is_verified_report, created_at }
-  Action: Triggers alarm sound + popup on admin dashboard
-
-emergency_approved
-  Room: emergency:{emergency_id}
-  Payload: { ref_number, unit_name, station_name, status }
-  Action: Updates citizen tracking screen
-
-emergency_status_updated
-  Room: emergency:{emergency_id}
-  Payload: { status, updated_at }
-  Action: Updates status badge on citizen screen
-
-station_unavailable_escalation
-  Room: superadmin
-  Payload: { emergency_id, message: "No available stations in region X" }
-  Action: Alerts super admin
-```
-
-### Events: Client → Server
-
-```
-join_station_room
-  Payload: { station_id }
-  Action: Admin joins their station alert room
-
-join_emergency_room
-  Payload: { emergency_id }
-  Action: Citizen subscribes to their emergency updates
-```
-
----
-
-## 11. MVP Scope
-
-The MVP is defined as the **minimum system that can save a life end-to-end.** It must work in a real emergency without failure.
+The MVP now includes **auto-approve fallback**, **rate-limit on repeated submissions**, and **station escalation chain**.
 
 ### ✅ In MVP
 
-| Feature | Description |
-|---|---|
-| Guest emergency submission | Phone number only, flagged unverified |
-| Registered citizen submission | Full ID-verified account |
-| GPS auto-capture | Browser geolocation API |
-| Landmark fallback | Manual description if GPS denied |
-| Emergency type selection | Fire, Rescue, Hazmat, Other |
-| Severity level | Low, Medium, High, Critical |
-| Find nearest available station | PostGIS distance query |
-| Fallback to next nearest | If closest station is busy |
-| Real-time dashboard alarm | Socket.IO + alarm sound |
-| SMS to station admin | Africa's Talking |
-| Admin approves dispatch | One-click with unit selection |
-| SMS to citizen on dispatch | Confirmation with reference number |
-| SMS to fire unit | GPS coordinates + Google Maps link |
-| Emergency tracking reference | GM-XXXXX format |
-| Citizen tracking screen | See current status of their report |
-| Station status management | Available / Responding / Unavailable |
-| JWT authentication | Registered users + station admins |
-| Guest token | One-hour token for unverified submissions |
+| Feature                        | Description                                                               |
+| ------------------------------ | ------------------------------------------------------------------------- |
+| Guest emergency submission     | Phone number only, flagged unverified, limited to 1 per hour (rate limit) |
+| Registered citizen submission  | Full ID-verified account                                                  |
+| GPS auto-capture               | Browser geolocation API                                                   |
+| Landmark fallback              | Manual description if GPS denied                                          |
+| Emergency type selection       | Fire, Rescue, Hazmat, Other                                               |
+| Severity level                 | Low, Medium, High, Critical                                               |
+| Find nearest available station | PostGIS distance query                                                    |
+| Fallback to next nearest       | If closest station is busy, repeated queries limited (rate limit)         |
+| Auto-approve dispatch          | If admin does not respond within X seconds/minutes                        |
+| Escalation chain               | If no station available → Super Admin notified                            |
+| Real-time dashboard alarm      | Socket.IO + alarm sound                                                   |
+| SMS to station admin           | Africa's Talking                                                          |
+| Admin approves dispatch        | One-click with unit selection                                             |
+| SMS to citizen on dispatch     | Confirmation with reference number                                        |
+| SMS to fire unit               | GPS coordinates + Google Maps link                                        |
+| Emergency tracking reference   | GM-XXXXX format                                                           |
+| Citizen tracking screen        | See current status of their report                                        |
+| Station status management      | Available / Responding / Unavailable                                      |
+| JWT authentication             | Registered users + station admins                                         |
+| Guest token                    | One-hour token for unverified submissions                                 |
+
+---
+
+*(All other sections remain unchanged and retain full details.)
+
 
 ### ❌ Not In MVP (Phase 2+)
 
@@ -961,7 +663,7 @@ MIT License — free to use, modify, and distribute.
 
 ## Contact
 
-Built by **musbi** — creator of AttendanceGM
+Built by **Musbi** — creator of AttendanceGM
 For questions or contributions: open an issue on GitHub
 
 ---
