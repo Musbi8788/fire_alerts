@@ -825,6 +825,7 @@ Monthly PDF auto-generated and emailed to GFRS HQ. Covers usage stats, response 
 | FastAPI | Async web framework |
 | SQLAlchemy 2.0 (async) | ORM with async session |
 | GeoAlchemy2 | PostGIS support in SQLAlchemy |
+| SQlite3 | development |
 | PostgreSQL 15 | Primary database |
 | PostGIS extension | Geospatial nearest-station queries |
 | Alembic | Database schema migrations |
